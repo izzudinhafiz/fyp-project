@@ -1,3 +1,3 @@
+import fyptools as tools
 
-for x in range(5):
-    print(x)
+tools.download_time_series()
