@@ -5,28 +5,36 @@ import time
 from datetime import datetime
 from os import listdir
 import random
+import matplotlib.pyplot as plt
+from pandas.plotting import register_matplotlib_converters
 
 
-def get_tickers(debug_level=0):
-    # Return all available tickers
-    if debug_level == 0:
-        tickers = pd.read_csv("tickers.csv")
-        tickers = sorted(tickers["Symbol"].tolist())
+register_matplotlib_converters()
 
-    # Return only AAPL ticker for debugging
-    elif debug_level == 1:
+
+def get_tickers(debug_level=0, target=None):
+    if debug_level == 1:  # Return only AAPL ticker for debugging
         tickers = ["AAPL"]
-
-    # Return 3 tickers for debugging
-    elif debug_level == 2:
+    elif debug_level == 2:  # Return 3 tickers for debugging
         tickers = ["AAPL", "AMZN", "MSFT"]
-
-    # Return 1 random ticker for debugging
-    elif debug_level == 3:
+    elif debug_level == 3:  # Return 1 random ticker for debugging
         tickers = pd.read_csv("tickers.csv")
         tickers = tickers["Symbol"]
         x = np.random.randint(0, len(tickers), size=1)
         tickers = [tickers.iloc[x[0]]]
+    elif debug_level == 4:  # Return list of tickers in the directory less the missing ones
+        tickers = pd.read_csv("tickers.csv")["Symbol"]
+        path = target + "missing_tickers.csv"
+        missing_tickers = pd.read_csv(path, header=None).T
+        tickers = list(tickers)
+        # missing_tickers = list(missing_tickers)
+        for index, ticker in missing_tickers.iterrows():
+            tickers.remove(ticker[0])
+
+        return tickers
+    else:  # else if debug_level = 0, return all tickers
+        tickers = pd.read_csv("tickers.csv")
+        tickers = sorted(tickers["Symbol"].tolist())
 
     return tickers
 
@@ -125,7 +133,7 @@ def download_time_series(target="dataset", rate=4, time_type="daily", interval="
             print("Completion: ", i + 1, "/", len(tickers))
             time.sleep(wait_time)
 
-    elif time_type == "intraday" :
+    elif time_type == "intraday":  # TODO: Fix exception handling
         for i in range(len(tickers)):
             try:
                 print("Downloading: " + str(tickers[i]))
@@ -181,7 +189,7 @@ def create_missing_list(target):
     tickers_downloaded = []
 
     got_two_csv = False
-
+    mask = []
     # create a mask to know which CSV file is the one with tickers
     while not got_two_csv:
         index_1 = random.randint(0, len(files))
@@ -238,3 +246,28 @@ def create_missing_list(target):
                 f.write("{},".format(ticker))
             else:
                 f.write(ticker)
+
+
+def plot_price_data(main_data, *col, start=None, end=None, days=False, plot_decision=True):
+    if start is None and end is None and days is False:
+        x_value = main_data.index
+        y_value = main_data
+    elif days:
+        x_value = main_data.iloc[-days:].index
+        y_value = main_data.iloc[-days:]
+    else:
+        x_value = main_data.loc[start:end].index
+        y_value = main_data.loc[start:end]
+
+    for value in col:
+        plt.plot(x_value, y_value[value], label=value)
+
+    if "decision" in y_value.columns and plot_decision:
+        for i, decision in enumerate(y_value["decision"]):
+            if decision == 1:
+                plt.plot(x_value[i], y_value.loc[x_value[i], "close"], color= "g", marker="^")
+            elif decision == -1:
+                plt.plot(x_value[i], y_value.loc[x_value[i], "close"], color="r", marker="v")
+    plt.legend()
+    plt.show()
+
