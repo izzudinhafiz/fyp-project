@@ -46,7 +46,6 @@ def download_time_series(target="dataset", rate=4, time_type="daily", interval="
     download_rate = rate
 
     # download Daily data for tickers
-    # download Daily data for tickers
     if time_type == "daily":
         for i in range(len(tickers)):
             print("Downloading: " + str(tickers[i]))
@@ -111,14 +110,14 @@ def download_time_series(target="dataset", rate=4, time_type="daily", interval="
                     columns={"4. close": "close_unadjusted", "5. adjusted close": "close", "6. volume": "volume"},
                     inplace=True)
 
-                # remove unnecassary columns
+                # remove unnecessary columns
                 data.drop(columns={"8. split coefficient", "7. dividend amount", "1. open", "2. high", "3. low"},
                           inplace=True)
 
                 # round data to 4 decimal places
                 data = data.round({"open": 4, "high": 4, "low": 4, "close": 4})
 
-                # save fixed_dataset seperate from raw dataset
+                # save fixed_dataset separate from raw dataset
                 data.to_csv("fixed_dataset/" + str(tickers[i]) + "_daily_adjusted.csv")
 
             # wait certain amount of time to avoid API limit
@@ -263,11 +262,12 @@ def plot_price_data(main_data, *col, start=None, end=None, days=False, plot_deci
         plt.plot(x_value, y_value[value], label=value)
 
     if "decision" in y_value.columns and plot_decision:
-        for i, decision in enumerate(y_value["decision"]):
-            if decision == 1:
-                plt.plot(x_value[i], y_value.loc[x_value[i], "close"], color= "g", marker="^")
-            elif decision == -1:
-                plt.plot(x_value[i], y_value.loc[x_value[i], "close"], color="r", marker="v")
+        buy = y_value.loc[y_value.decision == 1]
+        sell = y_value.loc[y_value.decision == -1]
+
+        plt.plot(buy.index, buy.close, "g^", linestyle=" ")
+        plt.plot(sell.index, sell.close, "rv", linestyle=" ")
+
     plt.legend()
     plt.show()
 
