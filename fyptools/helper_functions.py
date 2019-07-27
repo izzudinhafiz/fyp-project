@@ -247,27 +247,37 @@ def create_missing_list(target):
                 f.write(ticker)
 
 
-def plot_price_data(main_data, *col, start=None, end=None, days=False, plot_decision=True):
-    if start is None and end is None and days is False:
+def plot_price_data(main_data, *col, title=None, ticker=None, start_date=None, end_date=None, days=False, plot_label=True):
+    if start_date is None and end_date is None and days is False:
         x_value = main_data.index
         y_value = main_data
     elif days:
         x_value = main_data.iloc[-days:].index
         y_value = main_data.iloc[-days:]
     else:
-        x_value = main_data.loc[start:end].index
-        y_value = main_data.loc[start:end]
+        x_value = main_data.loc[start_date:end_date].index
+        y_value = main_data.loc[start_date:end_date]
 
-    for value in col:
-        plt.plot(x_value, y_value[value], label=value)
+    if len(col) == 0:
+        plt.plot(x_value, y_value["close"], label="close")
+    else:
+        for value in col:
+            plt.plot(x_value, y_value[value], label=value)
 
-    if "decision" in y_value.columns and plot_decision:
+    if "decision" in y_value.columns and plot_label:
         buy = y_value.loc[y_value.decision == 1]
         sell = y_value.loc[y_value.decision == -1]
 
         plt.plot(buy.index, buy.close, "g^", linestyle=" ")
         plt.plot(sell.index, sell.close, "rv", linestyle=" ")
 
+    if title is not None:
+        if ticker is None:
+            plt.title(title)
+        else:
+            plt.title("{}: {}".format(ticker, title))
+    elif ticker is not None:
+        plt.title(ticker)
     plt.legend()
     plt.show()
 
