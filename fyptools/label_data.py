@@ -1,8 +1,10 @@
 from fyptools import helper_functions as hf
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
-def cdnn_sezer(data, ticker=None, plot_hist=False, offsets=[4,15]):
+
+def cdnn_sezer(data, ticker=None, plot_hist=False, offsets=(4, 15)):
     """
     Labelling algorithm based on Sezer & Ozbayoglu (2019)
     where:
@@ -55,7 +57,7 @@ def cdnn_sezer(data, ticker=None, plot_hist=False, offsets=[4,15]):
     return main_df.decision
 
 
-def return_label(data, offset=30, offset_type="simple", required_return=0.03):
+def return_label(data, offset=30, offset_type="simple", required_return=None):
     '''
     Label decisions based on future return > required_return
 
@@ -72,8 +74,113 @@ def return_label(data, offset=30, offset_type="simple", required_return=0.03):
         frame["future_return"] = (frame.close.rolling(offset).mean().shift(-offset) - frame.close) / frame.close
 
     frame["decision"] = 0
-    frame.loc[frame["future_return"] > required_return, "decision"] = 1
-    frame.loc[frame["future_return"] < -required_return, "decision"] = -1
+    if required_return is not None:
+        frame.loc[frame["future_return"] > required_return, "decision"] = 1
+        frame.loc[frame["future_return"] < -required_return, "decision"] = -1
+    else:
+        ref_return = sorted(list(frame.future_return))
+        buy_return = ref_return[int(0.75*len(ref_return))]
+        sell_return = ref_return[int(0.25*len(ref_return))]
+        frame.loc[frame["future_return"] > buy_return, "decision"] = 1
+        frame.loc[frame["future_return"] < sell_return, "decision"] = -1
+    return frame.decision
+
+
+def rto_label(data, offset=30):
+    """
+    Regression Through Origin (RTO) Labelling
+
+    Theory:
+        RTO is calculated by minimizing square error between y_predict & y_actual
+        Hence min(Square_Error) --> (y_predict - y_actual)**2
+        y_predict is a linear function, y_predict = mx + c
+        since we want to pass thru origin, c = 0, y_predict = mx
+        Hence: min(Square_Error) --> (mx - y_actual)**2
+        Since square_error is a quadratic function:
+            Square_Error minimized when first derivative of Square_Error WRT x = 0
+    Procedure:
+        Translate points so starting point is on origin(0,0)
+        Perform best fit regression running through origin
+        Get slope, sort it, take 75% and 25% percentile slope as ref
+        If slope > 75%, buy
+        If slope < 25%, sell
+
+    :param data: Pandas DataFrame containing index and AT LEAST close price
+    :param offset: number of days to lookahead
+    :return: Pandas DataFrame of Decision
+
+    TODO: Optimize the speed of the for loop
+    """
+    frame = data.copy()
+    frame["slope"] = np.NaN
+
+    # Go thru each point
+    for i in range(len(frame.index)):
+        # Check to see if enough data is available at end of frame given offset
+        if i < (len(frame.index) - offset):
+            # Convert to NumpyArray for faster manipulation
+            window_df = np.asarray(frame.loc[frame.index[i:i+offset], "close"])
+            first_point = window_df[0]
+            window_df = window_df - first_point  # Translate points so starting point == Origin (0,0)
+            x_data = np.asarray([x for x in range(len(window_df))])  # X label, (0 to n)
+
+            a = np.square(x_data).sum()  # Get Sum of Square of X
+            b = (-2*x_data*window_df).sum()  # Get sum of 2xy
+            slope = -(b / (2*a))  # slope of a quadratic function for the error
+
+            frame.loc[frame.index[i], "slope"] = slope / first_point  # normalize
+
+    # Determine threshold values for buy and sell
+    ref_slope = sorted(list(frame["slope"]))
+    buy_threshold = ref_slope[int(0.75*len(ref_slope))]
+    sell_threshold = ref_slope[int(0.25*len(ref_slope))]
+
+    # Make decision
+    frame["decision"] = 0
+    frame.loc[frame.slope > buy_threshold, "decision"] = 1
+    frame.loc[frame.slope < sell_threshold, "decision"] = -1
 
     return frame.decision
 
+
+def cleanup_neighbour_checking(data):
+    pass
+
+
+def cleanup_region_agreement(data):
+    frame = data.copy()
+
+    active_decision = []
+    array = np.asarray(frame.decision)
+    state = "nothing"
+
+    for i in range(len(frame)):
+        current_action = array[i]
+        if state == "nothing" and current_action == 1:
+            state = "buy"
+        elif state == "nothing" and current_action == -1:
+            state = "sell"
+        elif state == "buy" and current_action == -1:
+            state = "sell"
+            subsample_analysis(array, active_decision, "buy")
+            active_decision.clear()
+        elif state == "sell" and current_action == 1:
+            state = "buy"
+            subsample_analysis(array, active_decision, "sell")
+            active_decision.clear()
+
+        if state == "buy" and current_action == 1:
+            active_decision.append(i)
+        elif state == "sell" and current_action == -1:
+            active_decision.append(i)
+    return frame.decision
+
+
+def subsample_analysis(data, indexes, state):
+    current_array = data[indexes[0], indexes[-1]]
+    if state == "buy":
+        min_value = current_array.amin()
+        min_index = current_array.argmin()
+
+    elif state == "sell":
+        pass
