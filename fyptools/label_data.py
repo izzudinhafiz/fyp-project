@@ -1,5 +1,3 @@
-from fyptools import helper_functions as hf
-import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -150,8 +148,9 @@ def cleanup_neighbour_checking(data):
 def cleanup_region_agreement(data):
     frame = data.copy()
 
-    active_decision = []
+    active_decision = {}
     array = np.asarray(frame.decision)
+    price = np.asarray(frame.close)
     state = "nothing"
 
     for i in range(len(frame)):
@@ -162,25 +161,50 @@ def cleanup_region_agreement(data):
             state = "sell"
         elif state == "buy" and current_action == -1:
             state = "sell"
-            subsample_analysis(array, active_decision, "buy")
+            removal = subsample_analysis(active_decision, "buy")
             active_decision.clear()
+            if removal is not None:
+                for item in removal:
+                    array[item] = 0
         elif state == "sell" and current_action == 1:
             state = "buy"
-            subsample_analysis(array, active_decision, "sell")
+            removal = subsample_analysis(active_decision, "sell")
             active_decision.clear()
+            if removal is not None:
+                for item in removal:
+                    array[item] = 0
 
         if state == "buy" and current_action == 1:
-            active_decision.append(i)
+            active_decision[i] = price[i]
         elif state == "sell" and current_action == -1:
-            active_decision.append(i)
+            active_decision[i] = price[i]
     return frame.decision
 
 
-def subsample_analysis(data, indexes, state):
-    current_array = data[indexes[0], indexes[-1]]
+def subsample_analysis(data, state, threshold=0.03):
     if state == "buy":
-        min_value = current_array.amin()
-        min_index = current_array.argmin()
+        min_value = 99999999
+        for value in data.values():
+            if value < min_value:
+                min_value = value
 
+        remove_list = []
+        threshold_value = min_value * (threshold + 1.0)
+        for key, value in data.items():
+            if value > threshold_value:
+                remove_list.append(key)
+
+        return remove_list
     elif state == "sell":
-        pass
+        max_value = 0
+        for value in data.values():
+            if value > max_value:
+                max_value = value
+
+        remove_list = []
+        threshold_value = max_value * (1.0 - threshold)
+        for key, value in data.items():
+            if value < threshold_value:
+                remove_list.append(key)
+
+        return remove_list
