@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 
-
-def cdnn_sezer(data, ticker=None, plot_hist=False, offsets=(4, 15)):
+def cdnn_sezer(data, offsets=(4, 15), ticker=None, plot_hist=False):
     """
     Labelling algorithm based on Sezer & Ozbayoglu (2019)
     where:
@@ -104,29 +104,29 @@ def rto_label(data, offset=30):
         If slope < 25%, sell
 
     :param data: Pandas DataFrame containing index and AT LEAST close price
-    :param offset: number of days to lookahead
+    :param offset: Number of days to lookahead
     :return: Pandas DataFrame of Decision
 
     TODO: Optimize the speed of the for loop
     """
     frame = data.copy()
-    frame["slope"] = np.NaN
+    slope_arr = np.zeros(len(frame))
+    close_arr = np.asarray(frame.close)
 
     # Go thru each point
     for i in range(len(frame.index)):
-        # Check to see if enough data is available at end of frame given offset
-        if i < (len(frame.index) - offset):
-            # Convert to NumpyArray for faster manipulation
-            window_df = np.asarray(frame.loc[frame.index[i:i+offset], "close"])
-            first_point = window_df[0]
-            window_df = window_df - first_point  # Translate points so starting point == Origin (0,0)
-            x_data = np.asarray([x for x in range(len(window_df))])  # X label, (0 to n)
+        if i < (len(frame) - offset):  # Check to see if enough data is available at end of frame given offset
+            window_arr = close_arr[i:i+offset]  # Active window of array
+            first_point = window_arr[0]
+            window_arr = window_arr - first_point  # Translate points so starting point == Origin (0,0)
+            x_data = np.asarray([x for x in range(len(window_arr))])  # X label, (0 to n)
 
             a = np.square(x_data).sum()  # Get Sum of Square of X
-            b = (-2*x_data*window_df).sum()  # Get sum of 2xy
+            b = (-2*x_data*window_arr).sum()  # Get sum of 2xy
             slope = -(b / (2*a))  # slope of a quadratic function for the error
 
-            frame.loc[frame.index[i], "slope"] = slope / first_point  # normalize
+            slope_arr[i] = slope / first_point  # normalize
+    frame["slope"] = slope_arr
 
     # Determine threshold values for buy and sell
     ref_slope = sorted(list(frame["slope"]))
@@ -145,66 +145,90 @@ def cleanup_neighbour_checking(data):
     pass
 
 
-def cleanup_region_agreement(data):
+def cleanup_region_agreement(data, thresh=0.03):
+    def subsample_analysis(data, state, threshold):
+        if state == "buy":
+            min_value = 99999999
+            for value in data.values():
+                if value < min_value:
+                    min_value = value
+
+            remove_list = []
+            threshold_value = min_value * (threshold + 1.0)
+            for key, value in data.items():
+                if value > threshold_value:
+                    remove_list.append(key)
+
+            return remove_list
+        elif state == "sell":
+            max_value = 0
+            for value in data.values():
+                if value > max_value:
+                    max_value = value
+
+            remove_list = []
+            threshold_value = max_value * (1.0 - threshold)
+            for key, value in data.items():
+                if value < threshold_value:
+                    remove_list.append(key)
+
+            return remove_list
+
     frame = data.copy()
 
     active_decision = {}
-    array = np.asarray(frame.decision)
+    decision_array = np.asarray(frame.decision)
     price = np.asarray(frame.close)
     state = "nothing"
 
     for i in range(len(frame)):
-        current_action = array[i]
+        current_action = decision_array[i]
         if state == "nothing" and current_action == 1:
             state = "buy"
         elif state == "nothing" and current_action == -1:
             state = "sell"
         elif state == "buy" and current_action == -1:
             state = "sell"
-            removal = subsample_analysis(active_decision, "buy")
+            removal = subsample_analysis(active_decision, "buy", thresh)
             active_decision.clear()
             if removal is not None:
                 for item in removal:
-                    array[item] = 0
+                    decision_array[item] = 0
         elif state == "sell" and current_action == 1:
             state = "buy"
-            removal = subsample_analysis(active_decision, "sell")
+            removal = subsample_analysis(active_decision, "sell", thresh)
             active_decision.clear()
             if removal is not None:
                 for item in removal:
-                    array[item] = 0
+                    decision_array[item] = 0
 
         if state == "buy" and current_action == 1:
             active_decision[i] = price[i]
         elif state == "sell" and current_action == -1:
             active_decision[i] = price[i]
+
     return frame.decision
 
 
-def subsample_analysis(data, state, threshold=0.03):
-    if state == "buy":
-        min_value = 99999999
-        for value in data.values():
-            if value < min_value:
-                min_value = value
+def remove_lone_decision(data, offset=10, cluster_ratio = 0.1):
+    threshold = round(offset * cluster_ratio)
+    if threshold < 1:
+        threshold = 1
+    decision = data["decision"].copy()
+    buy_decision = data["decision"].copy()
+    sell_decision = data["decision"].copy()
 
-        remove_list = []
-        threshold_value = min_value * (threshold + 1.0)
-        for key, value in data.items():
-            if value > threshold_value:
-                remove_list.append(key)
+    buy_decision.loc[buy_decision == -1] = 0
+    sell_decision.loc[sell_decision == 1] = 0
 
-        return remove_list
-    elif state == "sell":
-        max_value = 0
-        for value in data.values():
-            if value > max_value:
-                max_value = value
+    buy_sum = buy_decision.rolling(offset, center=True).sum()
+    sell_sum = sell_decision.rolling(offset, center=True).sum()
 
-        remove_list = []
-        threshold_value = max_value * (1.0 - threshold)
-        for key, value in data.items():
-            if value < threshold_value:
-                remove_list.append(key)
+    sell_sum.loc[sell_decision != -1] = 0
+    buy_sum.loc[buy_decision != 1] = 0
 
-        return remove_list
+    decision_remove = abs(sell_sum) + buy_sum
+    decision.loc[decision_remove <= threshold] = 0
+
+    return decision
+

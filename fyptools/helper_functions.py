@@ -247,7 +247,12 @@ def create_missing_list(target):
                 f.write(ticker)
 
 
-def plot_price_data(main_data, *col, title=None, ticker=None, start_date=None, end_date=None, days=False, plot_label=True):
+def plot_price_data(main_data, *col, title=None, ticker=None,
+                    start_date=None, end_date=None, days=False,
+                    plot_label=True, save_plot=False, filename=None):
+    plt.figure(figsize=(19, 10), dpi=100)
+
+
     if start_date is None and end_date is None and days is False:
         x_value = main_data.index
         y_value = main_data
@@ -278,6 +283,15 @@ def plot_price_data(main_data, *col, title=None, ticker=None, start_date=None, e
             plt.title("{}: {}".format(ticker, title))
     elif ticker is not None:
         plt.title(ticker)
-    plt.legend()
-    plt.show()
 
+    plt.legend()
+    if save_plot is False:
+        plt.tight_layout()
+        plt.show()
+    else:
+        plt.tight_layout()
+        if filename is None:
+            save_title = title + ".png"
+        else:
+            save_title = filename + ".png"
+        plt.savefig("label_image/" + save_title, orientation="landscape")
