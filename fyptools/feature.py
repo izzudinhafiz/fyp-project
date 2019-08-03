@@ -38,7 +38,7 @@ def ema(data: pd.DataFrame, period: int, *columns):
     return frame[column_list]
 
 
-def volatility(data: pd.DataFrame, period: int):
+def volatility_sd(data: pd.DataFrame, period: int):
     frame = data.copy()
 
     return frame.close.rolling(period).std(ddof=0)
@@ -117,7 +117,7 @@ def bollinger_band(data: pd.DataFrame):
     '''
 
     frame = data.copy()
-    sd = volatility(frame, 20).to_numpy()
+    sd = volatility_sd(frame, 20).to_numpy()
     middle_band = sma(frame, 20).to_numpy().reshape(-1)
     upper_band = middle_band + (sd * 2)
     lower_band = middle_band - (sd * 2)
