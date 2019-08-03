@@ -40,7 +40,7 @@ def ema(data: pd.DataFrame, period: int, *columns):
 
 def macd(data: pd.DataFrame, period: tuple = (12, 26)):
     if type(period) != tuple:
-        raise TypeError("Period should be of type tuple")
+        raise TypeError("Period should be of type tuple, given {} instead".format(type(period)))
     if len(period) > 2:
         raise ValueError("Period should be a tuple of length 2")
 
@@ -57,9 +57,50 @@ def macd(data: pd.DataFrame, period: tuple = (12, 26)):
     return frame["MACD"]
 
 
-def rsi(data: pd.DataFrame):
-    pass
+def rsi(data: pd.DataFrame, period: int = 14):
+    """
+                     100
+    RSI = 100 - --------
+                 1 + RS
 
+    RS = Average Gain / Average Loss
+
+    First Average Gain = Sum of Gains over the past 14 periods / 14.
+    First Average Loss = Sum of Losses over the past 14 periods / 14
+
+    Average Gain = [(previous Average Gain) x 13 + current Gain] / 14.
+    Average Loss = [(previous Average Loss) x 13 + current Loss] / 14.
+    """
+
+    frame = data.copy()
+
+    changes = frame.close - frame.close.shift(1)
+    gains, losses = changes.copy(), changes.copy()
+    gains.loc[gains < 0] = 0
+    losses.loc[losses > 0] = 0
+    losses = losses.abs()
+
+    gains, losses = np.asarray(gains), np.asarray(losses)
+
+    first_gain = np.sum(gains[1:period+1]) / period
+    first_loss = np.sum(losses[1:period+1]) / period
+
+    avg_gain, avg_loss = np.zeros(len(gains)), np.zeros(len(losses))
+    avg_gain[avg_gain == 0] = np.nan
+    avg_loss[avg_loss == 0] = np.nan
+
+    for i in range(len(changes) - period):
+        if i == 0:
+            avg_gain[i+period] = first_gain
+            avg_loss[i+period] = first_loss
+        else:
+            avg_gain[i+period] = (avg_gain[i+period - 1] * (period - 1) + gains[i+period]) / period
+            avg_loss[i + period] = (avg_loss[i + period - 1] * (period - 1) + losses[i + period]) / period
+
+    RS = avg_gain / avg_loss
+    RSI = 100 - (100 / (1 + RS))
+
+    return RSI
 
 def bollinger_band(data: pd.DataFrame):
     pass
