@@ -38,6 +38,12 @@ def ema(data: pd.DataFrame, period: int, *columns):
     return frame[column_list]
 
 
+def volatility(data: pd.DataFrame, period: int):
+    frame = data.copy()
+
+    return frame.close.rolling(period).std(ddof=0)
+
+
 def macd(data: pd.DataFrame, period: tuple = (12, 26)):
     if type(period) != tuple:
         raise TypeError("Period should be of type tuple, given {} instead".format(type(period)))
@@ -102,5 +108,19 @@ def rsi(data: pd.DataFrame, period: int = 14):
 
     return RSI
 
+
 def bollinger_band(data: pd.DataFrame):
-    pass
+    '''
+    * Middle Band = 20-day simple moving average (SMA)
+    * Upper Band = 20-day SMA + (20-day standard deviation of price x 2)
+    * Lower Band = 20-day SMA - (20-day standard deviation of price x 2)
+    '''
+
+    frame = data.copy()
+    sd = volatility(frame, 20).to_numpy()
+    middle_band = sma(frame, 20).to_numpy().reshape(-1)
+    upper_band = middle_band + (sd * 2)
+    lower_band = middle_band - (sd * 2)
+
+    return middle_band, upper_band, lower_band
+
