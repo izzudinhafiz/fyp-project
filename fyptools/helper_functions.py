@@ -248,17 +248,19 @@ def create_missing_list(target):
 
 
 def plot_price_data(main_data, *col, title=None, ticker=None,
-                    start_date=None, end_date=None, days=False,
+                    start_date=None, end_date=None, days=None,
                     plot_label=True, save_plot=False, filename=None):
     plt.figure(figsize=(19, 10), dpi=100)
-
 
     if start_date is None and end_date is None and days is False:
         x_value = main_data.index
         y_value = main_data
-    elif days:
+    elif days is not None:
         x_value = main_data.iloc[-days:].index
         y_value = main_data.iloc[-days:]
+    elif start_date is not None and end_date is None:
+        x_value = main_data.loc[start_date].index
+        y_value = main_data.loc[start_date]
     else:
         x_value = main_data.loc[start_date:end_date].index
         y_value = main_data.loc[start_date:end_date]
