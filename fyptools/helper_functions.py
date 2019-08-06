@@ -12,7 +12,15 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 
-def get_tickers(debug_level=0, target=None):
+def get_tickers(debug_level: int = 0, target: str = None):
+    """
+    1 - AAPL, 2 - AAPL, AMZN, MSFT, 3 - Random Ticker, 4 - All ticker less missing
+    0 - All tickers
+
+    :param debug_level: Debug level, choose what to return
+    :param target: path to missing_tickers.csv
+    :return: list of tickers
+    """
     if debug_level == 1:  # Return only AAPL ticker for debugging
         tickers = ["AAPL"]
     elif debug_level == 2:  # Return 3 tickers for debugging

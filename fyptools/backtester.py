@@ -13,6 +13,7 @@ class Backtester(object):
     def __init__(self, world_data: pd.DataFrame, cash, start, end):
         self.data = world_data
         self.dates = world_data[start:end].index.tolist()
+        self.tickers = list(set(world_data.columns.get_level_values(0)))
         self.counter = 0
         self.date = self.dates[self.counter]
         self.portfolio = Portfolio(self, cash)
@@ -20,9 +21,7 @@ class Backtester(object):
         self.commission_rate = 0.01
 
     def get_price(self, ticker=None):
-        if ticker is not None:  # not implemented yet
-            return self.data[ticker].loc[self.date, "close"]
-        return self.data.close[self.date]
+        return self.data[ticker].loc[self.date, "close"]
 
     def get_date(self):
         return self.date
@@ -37,6 +36,11 @@ class Backtester(object):
             position.manually_close("eos")
         self.portfolio.update_positions()
 
+    def has_data(self, ticker):
+        if str(self.data[ticker].loc[self.date, "close"]) != "nan":
+            return True
+        else:
+            return False
 
 class Portfolio(object):
     def __init__(self, backtester, cash):
@@ -68,7 +72,7 @@ class Portfolio(object):
         self.counter += 1
 
     def open_position_unit(self, ticker, unit, tp=None, sl=None):
-        value = self.bt.get_price() * unit
+        value = self.bt.get_price(ticker) * unit
         self.open_position_value(ticker, value, tp, sl)
 
     def is_open(self, ticker):
@@ -84,7 +88,7 @@ class Position(object):
         self.portfolio = portfolio
         self.id = identifier
         self.ticker = ticker
-        self.open_price = self.bt.get_price()
+        self.open_price = self.bt.get_price(self.ticker)
         self.open_value = value
         self.unit = self.open_value / self.open_price
         self.open_date = self.bt.get_date()
@@ -109,7 +113,7 @@ class Position(object):
         self.close_type = None
 
     def update_position(self):
-        self.current_price = self.bt.get_price()
+        self.current_price = self.bt.get_price(self.ticker)
         self.current_value = self.unit * self.current_price
         self.nominal_profit = self.current_value - self.open_value
         self.true_profit = self.nominal_profit - self.open_commission
