@@ -305,3 +305,11 @@ def plot_price_data(main_data, *col, title=None, ticker=None,
         else:
             save_title = filename + ".png"
         plt.savefig("label_image/" + save_title, orientation="landscape")
+
+
+def read_data(ticker, target=None):
+    if target is None:
+        path = "fixed_dataset/{}_daily_adjusted.csv".format(ticker)
+    else:
+        path = target
+    return pd.read_csv(path, index_col="date", parse_dates=True)
