@@ -26,12 +26,12 @@ def get_tickers(debug_level: int = 0, target: str = None):
     elif debug_level == 2:  # Return 3 tickers for debugging
         tickers = ["AAPL", "AMZN", "MSFT"]
     elif debug_level == 3:  # Return 1 random ticker for debugging
-        tickers = pd.read_csv("tickers.csv")
+        tickers = pd.read_csv("D:/fyp-project/tickers.csv")
         tickers = tickers["Symbol"]
         x = np.random.randint(0, len(tickers), size=1)
         tickers = [tickers.iloc[x[0]]]
     elif debug_level == 4:  # Return list of tickers in the directory less the missing ones
-        tickers = pd.read_csv("tickers.csv")["Symbol"]
+        tickers = pd.read_csv("D:/fyp-project/tickers.csv")["Symbol"]
         path = target + "missing_tickers.csv"
         missing_tickers = pd.read_csv(path, header=None).T
         tickers = list(tickers)
@@ -309,7 +309,7 @@ def plot_price_data(main_data, *col, title=None, ticker=None,
 
 def read_data(ticker, target=None):
     if target is None:
-        path = "fixed_dataset/{}_daily_adjusted.csv".format(ticker)
+        path = "D:/fyp-project/fixed_dataset/{}_daily_adjusted.csv".format(ticker)
     else:
         path = target
     return pd.read_csv(path, index_col="date", parse_dates=True)
