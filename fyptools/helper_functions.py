@@ -3,7 +3,7 @@ import numpy as np
 from alpha_vantage.timeseries import TimeSeries
 import time
 from datetime import datetime
-from os import listdir
+import os
 import random
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
@@ -21,27 +21,32 @@ def get_tickers(debug_level: int = 0, target: str = None):
     :param target: path to missing_tickers.csv
     :return: list of tickers
     """
+    base_path = os.path.abspath(os.curdir)
+
     if debug_level == 1:  # Return only AAPL ticker for debugging
         tickers = ["AAPL"]
     elif debug_level == 2:  # Return 3 tickers for debugging
         tickers = ["AAPL", "AMZN", "MSFT"]
     elif debug_level == 3:  # Return 1 random ticker for debugging
-        tickers = pd.read_csv("D:/fyp-project/tickers.csv")
+        tickers = pd.read_csv("{}\\tickers.csv".format(base_path))
         tickers = tickers["Symbol"]
         x = np.random.randint(0, len(tickers), size=1)
         tickers = [tickers.iloc[x[0]]]
     elif debug_level == 4:  # Return list of tickers in the directory less the missing ones
-        tickers = pd.read_csv("D:/fyp-project/tickers.csv")["Symbol"]
-        path = target + "missing_tickers.csv"
-        missing_tickers = pd.read_csv(path, header=None).T
+        tickers = pd.read_csv("{}\\tickers.csv".format(base_path))["Symbol"]
+        if target is None:
+            path_to_file = "{}\\fixed_dataset\\missing_tickers.csv".format(base_path)
+        else:
+            path_to_file = "{}/missing_tickers.csv".format(target)
+        missing_tickers = pd.read_csv(path_to_file, header=None).T
         tickers = list(tickers)
         # missing_tickers = list(missing_tickers)
         for index, ticker in missing_tickers.iterrows():
             tickers.remove(ticker[0])
 
-        return tickers
+        return sorted(tickers)
     else:  # else if debug_level = 0, return all tickers
-        tickers = pd.read_csv("tickers.csv")
+        tickers = pd.read_csv("{}\\tickers.csv".format(base_path))
         tickers = sorted(tickers["Symbol"].tolist())
 
     return tickers
@@ -191,7 +196,7 @@ def download_time_series(target="dataset", rate=4, time_type="daily", interval="
 def create_missing_list(target):
     tickers = get_tickers()
 
-    files = [f for f in listdir(target)]
+    files = [f for f in os.listdir(target)]
 
     tickers_downloaded = []
 
@@ -246,7 +251,7 @@ def create_missing_list(target):
             missing_tickers.append(ticker)
 
     # save the list of missing tickers
-    csv_path = target + "missing_tickers.csv"
+    csv_path = "{}/missing_tickers.csv".format(target)
     with open(csv_path, "w") as f:
         for ticker in missing_tickers:
             if ticker is not missing_tickers[-1]:
@@ -299,17 +304,19 @@ def plot_price_data(main_data, *col, title=None, ticker=None,
         plt.tight_layout()
         plt.show()
     else:
+        base_path = os.path.abspath(os.curdir)
         plt.tight_layout()
         if filename is None:
             save_title = title + ".png"
         else:
             save_title = filename + ".png"
-        plt.savefig("label_image/" + save_title, orientation="landscape")
+        plt.savefig("{}\\label_image\\{}".format(base_path, save_title), orientation="landscape")
 
 
 def read_data(ticker, target=None):
+    base_path = os.path.abspath(os.curdir)
     if target is None:
-        path = "D:/fyp-project/fixed_dataset/{}_daily_adjusted.csv".format(ticker)
+        path = "{}\\fixed_dataset\\{}_daily_adjusted.csv".format(base_path, ticker)
     else:
         path = target
     return pd.read_csv(path, index_col="date", parse_dates=True)
