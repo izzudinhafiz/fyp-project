@@ -1,5 +1,6 @@
 import pandas as pd
-from datetime import datetime
+import matplotlib.pyplot as plt
+import datetime
 """
 Template for running Backtester
 - Initialize Backtester
@@ -20,14 +21,18 @@ class Backtester(object):
         self.portfolio = Portfolio(self, cash)
         self.history = History(self)
         self.commission_rate = 0.01
-        self.years = int(end) - int(start) + 1
+        self.start_date = self.dates[0].to_pydatetime()
+        self.end_date = self.dates[-1].to_pydatetime()
         self.history.record_daily_history()
 
     def get_price(self, ticker=None):
         return self.data[ticker].loc[self.date, "close"]
 
-    def get_date(self):
-        return self.date
+    def get_date(self, date_format="pandas"):
+        if date_format == "pandas":
+            return self.date
+        elif date_format == "python":
+            return self.date.to_pydatetime()
 
     def next_day(self):
         self.counter += 1
@@ -47,7 +52,8 @@ class Backtester(object):
         self.history.make_daily_history()
 
         # Update records for report
-        self.portfolio.annualized_return = (self.portfolio.equity / self.portfolio.starting_equity)**(1/self.years) - 1
+        years = self.end_date.year - self.start_date.year + 1
+        self.portfolio.annualized_return = (self.portfolio.equity / self.portfolio.starting_equity)**(1/years) - 1
 
     def has_data(self, ticker):
         if str(self.data[ticker].loc[self.date, "close"]) != "nan":
@@ -214,50 +220,29 @@ class History(object):
 
     def get_summary(self):
         cols = ["ticker",  "true_profit", "nominal_profit", "close_value", "open_value",
-                "units", "open_price", "close_price", "open_commission", "close_commission",
+                "unit", "open_price", "close_price", "open_commission", "close_commission",
                 "take_profit", "stop_loss", "close_type", "open_date", "close_date"]
-        summary = pd.DataFrame(columns=cols)
+        index = self.positions.keys()
+        data = []
+        for identifier in index:
+            position = self.positions[identifier]
+            temp = []
+            for col in cols:
+                temp.append(getattr(position, col))
+            data.append(temp)
 
-        for identifier, position in self.positions.items():
-            temp = {}
-            temp["ticker"] = position.ticker
-            temp["open_date"] = position.open_date
-            temp["close_date"] = position.close_date
-            temp["true_profit"] = position.true_profit
-            temp["nominal_profit"] = position.nominal_profit
-            temp["close_value"] = position.current_value
-            temp["open_value"] = position.open_value
-            temp["units"] = position.unit
-            temp["open_price"] = position.open_price
-            temp["close_price"] = position.current_price
-            temp["open_commission"] = position.open_commission
-            temp["close_commission"] = position.close_commission
-            temp["take_profit"] = position.take_profit
-            temp["stop_loss"] = position.stop_loss
-            temp["close_type"] = position.close_type
-            summary.loc[identifier] = temp
-        summary.sort_index(inplace=True)
-        return summary
+        return pd.DataFrame(data, index, cols)
 
     def get_position_summary_by_id(self, identifier):
+        cols = ["ticker",  "true_profit", "nominal_profit", "close_value", "open_value",
+                "unit", "open_price", "close_price", "open_commission", "close_commission",
+                "take_profit", "stop_loss", "close_type", "open_date", "close_date"]
         position = self.positions[identifier]
-        temp = {}
-        temp["ticker"] = position.ticker
-        temp["open_date"] = position.open_date
-        temp["close_date"] = position.close_date
-        temp["true_profit"] = position.true_profit
-        temp["nominal_profit"] = position.nominal_profit
-        temp["close_value"] = position.current_value
-        temp["open_value"] = position.open_value
-        temp["units"] = position.unit
-        temp["open_price"] = position.open_price
-        temp["close_price"] = position.current_price
-        temp["open_commission"] = position.open_commission
-        temp["close_commission"] = position.close_commission
-        temp["take_profit"] = position.take_profit
-        temp["stop_loss"] = position.stop_loss
-        temp["close_type"] = position.close_type
-        return temp
+        data = []
+        for col in cols:
+            data.append(getattr(position, col))
+
+        return pd.Series(data, cols)
 
     def get_position_summary_by_ticker(self, ticker):
         list_of_id = []
@@ -269,12 +254,30 @@ class History(object):
             for identifier in list_of_id:
                 temp[identifier] = self.get_position_summary_by_id(identifier)
 
-        return temp
+        return pd.DataFrame(temp).transpose()
 
     def record_daily_history(self):
         portfolio = self.bt.portfolio
-        daily = {"cash": portfolio.cash, "equity": portfolio.equity, "positions_value": portfolio.positions_value}
+        cols = ["cash", "equity", "positions_value"]
+        daily = {}
+        for col in cols:
+            daily[col] = getattr(portfolio, col)
         self.daily_history[self.bt.get_date()] = daily
 
     def make_daily_history(self):
         self.daily_history = pd.DataFrame.from_dict(self.daily_history, orient="index")
+
+    def report(self):
+        data = dict()
+        data["annualized_return"] = self.bt.portfolio.annualized_return
+        data["beta"] = None
+        data["alpha"] = None
+        data["average_net_exposure"] = None
+
+        return data
+
+    def return_report(self):
+        pass
+
+    def plot_history(self):
+        pass
