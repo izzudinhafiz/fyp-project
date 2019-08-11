@@ -114,6 +114,9 @@ def bollinger_band(data: pd.DataFrame):
     * Middle Band = 20-day simple moving average (SMA)
     * Upper Band = 20-day SMA + (20-day standard deviation of price x 2)
     * Lower Band = 20-day SMA - (20-day standard deviation of price x 2)
+
+    :param data: Pandas DataFrame containing OHLC data
+    :return: middle_band, upper_band, lower_band
     '''
 
     frame = data.copy()
