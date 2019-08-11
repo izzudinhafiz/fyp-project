@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 import matplotlib.pyplot as plt
 import datetime
 """
@@ -24,6 +25,9 @@ class Backtester(object):
         self.start_date = self.dates[0].to_pydatetime()
         self.end_date = self.dates[-1].to_pydatetime()
         self.history.record_daily_history()
+        _ = pd.read_csv(r"{}\fyptools\data\daily_adjusted_SPX.csv".format(os.path.abspath(os.curdir)),
+                        index_col="date", parse_dates=True).sort_index()
+        self.benchmark_data = _.loc[pd.to_datetime(self.dates[0]).date():pd.to_datetime(self.dates[-1]).date()]
 
     def get_price(self, ticker=None):
         return self.data[ticker].loc[self.date, "close"]
@@ -118,9 +122,31 @@ class Portfolio(object):
         self.open_position_value(ticker, value, tp, sl)
 
     def is_open(self, ticker):
-        if ticker in self.positions.values():
+        identifier = []
+        for position in self.positions.values():
+            if position.ticker == ticker:
+                identifier.append(position.id)
+
+        if len(identifier) == 1:
             return True
-        return False
+        elif len(identifier) > 1:
+            return identifier
+        else:
+            return False
+
+    def open_type(self, ticker):
+        for position in self.positions.values():
+            if position.ticker == ticker:
+                return position.type
+
+        return None
+
+    def get_id(self, ticker):
+        for position in self.positions.values():
+            if position.ticker == ticker:
+                return position.id
+
+        return None
 
 
 class Position(object):
@@ -280,4 +306,12 @@ class History(object):
         pass
 
     def plot_history(self):
-        pass
+        portfolio_return = self.daily_history["equity"]
+        portfolio_return = portfolio_return / portfolio_return[0]
+        index_return = self.bt.benchmark_data["close"]
+        index_return = index_return / index_return[0]
+
+        plt.plot(portfolio_return, label="Portfolio")
+        plt.plot(index_return, label="Benchmark - SPX")
+        plt.legend()
+        plt.show()

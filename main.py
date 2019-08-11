@@ -14,22 +14,23 @@ for ticker in tickers:
 
 main_df = pd.concat(main_df, 1)
 
-bt = backtester.Backtester(main_df, 100_000, "1998", "2010")
-decisions = main_df["AAPL", "decision"].loc["1998":"2010"].to_numpy()
+bt = backtester.Backtester(main_df, 100_000, "2003", "2010")
+decisions = main_df["AAPL", "decision"].loc["2003":"2019"].to_numpy()
 
 for i in range(len(bt.dates)-1):
-    if decisions[i] == 1:
-        tp = bt.get_price("AAPL") * 1.1
-        sl = bt.get_price("AAPL") * 0.9
-        bt.portfolio.open_position_value("AAPL", 50000, tp, sl)
-    if decisions[i] == -1:
-        tp = bt.get_price("AAPL") * 0.9
-        sl = bt.get_price("AAPL") * 1.1
-        bt.portfolio.open_position_value("AAPL", -50000, tp, sl)
+    if bt.portfolio.is_open("AAPL"):
+        if bt.portfolio.open_type("AAPL") == "long":
+            if decisions[i] == -1:
+                bt.portfolio.positions[bt.portfolio.get_id("AAPL")].manually_close()
+        elif bt.portfolio.open_type("AAPL") == "short":
+            if decisions[i] == 1:
+                bt.portfolio.positions[bt.portfolio.get_id("AAPL")].manually_close()
+    elif decisions[i] == 1:
+        bt.portfolio.open_position_value("AAPL", bt.portfolio.cash)
+    elif decisions[i] == -1:
+        bt.portfolio.open_position_value("AAPL", -bt.portfolio.cash)
 
     bt.next_day()
-
-
 
 bt.end_of_simulation()
 print(bt.history.daily_history)
@@ -39,3 +40,4 @@ annualized_return = (bt.portfolio.cash/100_000)**(1/13) - 1
 print(profit + 100_000, bt.portfolio.cash, bt.portfolio.equity)
 print("End of Simulation")
 print("Annualized Return: {:.2f}%".format(bt.portfolio.annualized_return*100))
+bt.history.plot_history()
