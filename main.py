@@ -6,6 +6,7 @@ import fyptools.feature as feature
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 ticker_df = helper.read_data("AAPL")
 ticker_df["decision"] = label.rto_label(ticker_df, 15)
@@ -30,13 +31,15 @@ validation_index = validation_data.index.tolist()
 pca = PCA()
 scaler = StandardScaler()
 
-transformed_data = pd.DataFrame(scaler.fit_transform(training_data.to_numpy()), index=training_index, columns=training_features)
-print(transformed_data.describe())
+scaler.fit(training_data.to_numpy())
+transformed_data = scaler.transform(training_data.to_numpy())
 
-principal_components = pca.fit_transform(transformed_data.to_numpy())
+pca.fit(transformed_data)
+training_components = pca.transform(transformed_data)
 
 validation_data = scaler.transform(validation_data.to_numpy())
 prediction_components = pca.transform(validation_data)
+
 
 cols = []
 for _ in range(len(features)):
@@ -44,15 +47,31 @@ for _ in range(len(features)):
 
 principal_data = pd.DataFrame(prediction_components, index=validation_index, columns=cols)
 principal_data = pd.concat([principal_data, validation_label], axis=1)
-print(principal_data.head())
+
+principal_data = pd.DataFrame(training_components, index=training_index, columns=cols)
+principal_data = pd.concat([principal_data, training_label], axis=1)
 
 labels = [1, -1, 0]
 colors = ["g", "r", "k"]
 
+# for label, color in zip(labels, colors):
+#     index_to_keep = principal_data["decision"] == label
+#     plt.scatter(principal_data.loc[index_to_keep, "pca3"],
+#                 principal_data.loc[index_to_keep, "pca2"],
+#                 c=color, alpha=0.8, s=10)
+#
+# plt.show()
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
 for label, color in zip(labels, colors):
     index_to_keep = principal_data["decision"] == label
-    plt.scatter(principal_data.loc[index_to_keep, "pca2"],
-                principal_data.loc[index_to_keep, "pca1"],
-                c=color, alpha=0.8, s=10)
+    ax.scatter(principal_data.loc[index_to_keep, "pca1"],
+               principal_data.loc[index_to_keep, "pca2"],
+               principal_data.loc[index_to_keep, "pca3"],
+               c = color)
+
+ax.set_xlabel("pca1")
+ax.set_ylabel("pca2")
+ax.set_zlabel("pca3")
 
 plt.show()
